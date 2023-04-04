@@ -31,7 +31,7 @@ class SGDRegression(object):
           assert self.lr > 0, 'Invalid learning rate.'
           assert self.n_iters > 0, 'Invalid number of iterations.'
           assert self.lambd > 0, 'Invalid regularization parameter.'
-          assert self.regularization in ['l1', 'l2', 'l1_l2', None], 'Invalid regularizer.'
+          assert self.regularization in ['l1', 'l2', 'elasticnet', None], 'Invalid regularizer.'
 
      def _penalty(self):
           """Compute the penalty.
