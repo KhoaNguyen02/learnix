@@ -47,3 +47,19 @@ def l1_l2_regularizer(x, lambd, grad=False):
           return l1_regularizer(x, lambd, grad=True) + l2_regularizer(x, lambd, grad=True)
      else:
           return l1_regularizer(x, lambd) + l2_regularizer(x, lambd)
+
+def cross_entropy_loss(y_true, y_pred, grad=False):
+     """Cross-entropy loss function.
+
+     Args:
+         y_true (np.array): of shape (n_samples, 1) containing the true labels.
+         y_pred (np.array): of shape (n_samples, 1) containing the predictions.
+         grad (bool, optional): whether to return the gradient or the loss. Defaults to False.
+
+     Returns:
+         float: loss or gradient of the loss.
+     """
+     if grad:
+          return y_pred - y_true
+     else:
+          return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
