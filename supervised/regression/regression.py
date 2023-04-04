@@ -1,25 +1,48 @@
 import numpy as np
-import multiprocessing as mp
+from utils.misc import *
 
 class SGDRegression(object):
-     def __init__(self, learning_rate=0.01, n_iters=100, lambd=0.01, regularization=None):
+     def __init__(self, learning_rate=0.01, n_iters=100, lambd=0.01, regularizer=None):
+          """Linear regression using gradient descent.
+
+          Args:
+              learning_rate (float, optional): learning rate of the gradient descent. Defaults to 0.01.
+              n_iters (int, optional): number of iterations. Defaults to 100.
+              lambd (float, optional): regularization parameter. Defaults to 0.01.
+              regularizer (_type_, optional): type of regularization. Defaults to None. The options are:
+                    - l1: l1 regularization
+                    - l2: l2 regularization
+                    - l1_l2: l1 and l2 regularization
+                    - None: no regularization
+          """
           self.lr = learning_rate
           self.n_iters = n_iters
           self.lambd = lambd
-          assert regularization in ['l1', 'l2', 'l1_l2', None], 'Invalid regularization'
-          self.regularization = regularization
+          assert regularizer in ['l1', 'l2', 'l1_l2', None], 'Invalid regularization'
+          self.regularization = regularizer
      
      def _regularizer(self):
+          """Compute the regularization term.
+
+          Returns:
+              float: regularization term.
+          """
           if self.regularization == 'l1':
-               return self.lambd * np.sign(self.beta)
+               return l1_regularizer(self.beta, self.lambd, grad=True)
           elif self.regularization == 'l2':
-               return 2 * self.lambd* self.beta
+               return l2_regularizer(self.beta, self.lambd, grad=True)
           elif self.regularization == 'l1_l2':
-               return self.lambd * np.sign(self.beta) + 2 * self.lambd* self.beta
+               return l1_l2_regularizer(self.beta, self.lambd, grad=True)
           else:
                return 0
           
      def fit(self, X, y):
+          """Fit the model.
+
+          Args:
+              X (np.array): of shape (n_samples, n_features) containing the training data.
+              y (np.array): of shape (n_samples, ) containing the target values.
+          """
           X = np.insert(X, 0, 1, axis=1)
           # init parameters
           n_samples, n_features = X.shape
@@ -33,18 +56,49 @@ class SGDRegression(object):
                self.beta -= self.lr * grad
 
      def predict(self, X):
+          """Predict using the linear model.
+
+          Args:
+              X (np.array): of shape (n_samples, n_features) containing the data to make predictions on.
+
+          Returns:
+              np.array: of shape (n_samples, ) containing the predicted values.
+          """
           X = np.insert(X, 0, 1, axis=1)
           return np.dot(X, self.beta)
      
      def get_coef(self):
+          """Get the coefficients of the linear model.
+
+          Returns:
+              np.array: of shape (n_features, ) containing the coefficients.
+          """
           return self.beta[1:]
      
      def get_intercept(self):
+          """Get the intercept of the linear model.
+
+          Returns:
+              float: intercept.
+          """
           return self.beta[0]
      
 class LinearRegression(SGDRegression):
-     def __init__(self, learning_rate=0.01, n_iters=100, gradient_descent=False, lambd=0.01, regularization=None):
-          super().__init__(learning_rate, n_iters, lambd, regularization)
+     def __init__(self, learning_rate=0.01, n_iters=100, gradient_descent=False, lambd=0.01, regularizer=None):
+          """Linear regression.
+
+          Args:
+              learning_rate (float, optional): learning rate of gradient descent. Defaults to 0.01.
+              n_iters (int, optional): number of iterations. Defaults to 100.
+              gradient_descent (bool, optional): whether to use gradient descent or not. Defaults to False.
+              lambd (float, optional): regularization parameter. Defaults to 0.01.
+              regularizer (_type_, optional): type of regularization. Defaults to None. The options are:
+                    - l1: l1 regularization
+                    - l2: l2 regularization
+                    - l1_l2: l1 and l2 regularization
+                    - None: no regularization
+          """
+          super().__init__(learning_rate, n_iters, lambd, regularizer)
           self.gradient_descent = gradient_descent
 
      def fit(self, X, y):
@@ -56,9 +110,22 @@ class LinearRegression(SGDRegression):
 
 class PolynomialRegression:
      def __init__(self, degree=2):
+          """Polynomial regression.
+          
+          Args:
+              degree (int, optional): degree of the polynomial. Defaults to 2.
+          """
           self.degree = degree
 
      def _create_poly_features(self, X):
+          """Create polynomial features.
+
+          Args:
+              X (np.array): of shape (n_samples, n_features) containing the data.
+
+          Returns:
+              np.array: of shape (n_samples, n_features * degree) containing the polynomial features.
+          """
           n_samples, n_features = X.shape
           X_poly = np.zeros((n_samples, n_features * self.degree))
           for i in range(n_samples):
