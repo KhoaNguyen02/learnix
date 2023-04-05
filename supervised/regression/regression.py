@@ -55,10 +55,10 @@ class SGDRegression(object):
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features)
-              training data where n_samples is the number of samples and n_features is the number of features.
-          y : np.ndarray of shape (n_samples,)
-              target values.
+          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
+               training data.
+          y : np.ndarray of shape (n_samples,).
+               target values.
           """
           X = np.insert(X, 0, 1, axis=1)
           # init parameters
@@ -73,18 +73,18 @@ class SGDRegression(object):
                self.beta -= self.lr * grad
 
      def predict(self, X):
-          """Predict the target values.
+          """Predict the target values for the test data.
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features)
-              training data where n_samples is the number of samples and n_features is the number of features.
+          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
+               test data.
 
           Returns
           -------
           np.ndarray of shape (n_samples,)
-               predicted values.
-          """         
+               predicted values for the test data.
+          """ 
           X = np.insert(X, 0, 1, axis=1)
           return np.dot(X, self.beta)
      
@@ -158,13 +158,13 @@ class PolynomialRegression(LinearRegression):
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features)
-               training data where n_samples is the number of samples and n_features is the number of features.
+          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
+               training data.
           
           Returns
           -------
           np.ndarray of shape (n_samples, n_features * degree)
-               polynomial features.
+               polynomial features of the training data.
           """
           n_samples, n_features = X.shape
           X_poly = np.zeros((n_samples, n_features * self.degree))

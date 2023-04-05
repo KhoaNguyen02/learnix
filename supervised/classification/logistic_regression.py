@@ -108,10 +108,10 @@ class LogisticRegression:
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features)
-              training data where n_samples is the number of samples and n_features is the number of features.
-          y : np.ndarray of shape (n_samples,)
-              target values.
+          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
+               training data.
+          y : np.ndarray of shape (n_samples,).
+               target values.
           """
           self._initialize_weights(X.shape[1])
           self.costs = []
@@ -126,17 +126,17 @@ class LogisticRegression:
                     break
      
      def predict(self, X):
-          """Predict the target values.
+          """Predict the target labels for the test data.
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features)
-              training data where n_samples is the number of samples and n_features is the number of features.
+          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
+               test data.
 
           Returns
           -------
           np.ndarray of shape (n_samples,)
-               predicted values.
+               predicted labels for the test data.
           """
           y_pred = self._forward(X)
           return np.round(y_pred).astype(int)
