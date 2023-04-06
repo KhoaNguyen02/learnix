@@ -1,2 +1,2 @@
 from .logistic_regression import LogisticRegression
-from .knn import *
+from .knn import KNN
