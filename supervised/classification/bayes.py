@@ -153,13 +153,3 @@ class GaussianNB(BaseBayes):
           n_ij = - 0.5 * np.sum(np.log(2. * np.pi * self.sigma[i]))
           n_ij -= 0.5 * np.sum(((X - self.theta[i]) ** 2) / (self.sigma[i] + self.epsilon), 1)
           return jointi + n_ij
-
-
-
-
-
-
-     
-
-
-
