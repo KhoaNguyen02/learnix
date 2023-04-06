@@ -1,149 +1,295 @@
 import numpy as np
 import multiprocessing as mp
-from utils.metrics import *
+from utils.metrics import get_dist
+import warnings
 
-class KNearestNeighbors:
-     def __init__(self, k=5, distance='euclidean', p=2, weights='uniform', n_process='max'):
-          """K-Nearest Neighbors Classifier. This is a brute force implementation of the K-Nearest Neighbors algorithm.
+class Node:
+     def __init__(self, X):
+          """Node of KDTree
+
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+          """
+          self.X = X
+          self.axis = None
+          self.median = None
+          self.left = None
+          self.right = None
+
+class InternalNode(Node):
+     def __init__(self, X, left, right):
+          """Internal node of KDTree
+
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+
+          left : Node class
+               left child of a node
+
+          right : Node class
+               tight child of a node
+          """
+          super().__init__(X)
+          self.axis = X.shape[1] % self.X.shape[1]
+          self.median = X.shape[0] // 2
+          self.left = left
+          self.right = right
+
+     def _get_nearest_neighbors(self, X_test):
+          """Get nearest neighbors of test data
+
+          Parameters
+          ----------
+          X_test : numpy.ndarray of shape (n_features,) where n_features is the number of features
+               test data
+
+          Returns
+          -------
+          numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               indices of nearest neighbors
+          """
+          if X_test[self.axis] < self.X[self.median, self.axis]:
+               return self.left._get_nearest_neighbors(X_test)
+          else:
+               return self.right._get_nearest_neighbors(X_test)
+     
+class LeafNode(Node):
+     def __init__(self, X):
+          """Leaf node of KDTree
+
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+          """
+          super().__init__(X)
+          
+     def _get_nearest_neighbors(self, *args):
+          """Get nearest neighbors of test data
+          
+          Returns
+          -------
+          numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               indices of nearest neighbors
+          """
+          return np.arange(self.X.shape[0])
+     
+class KDTree:
+     def __init__(self, X, dist_type='euclidean', p=2, leaf_size=30):
+          """KDTree algorithm for finding nearest neighbors.
+
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+
+          dist_type : str, optional
+               type of metric distance used, by default 'euclidean'. The options are:
+
+                    - 'euclidean': Euclidean distance
+                    - 'manhattan': Manhattan distance
+                    - 'minkowski': Minkowski distance
+                    - 'cosine': Cosine distance
+                    - 'chebyshev': Chebyshev distance
+                    - 'hamming': Hamming distance
+                    - 'jaccard': Jaccard distance
+
+          p : int, optional
+               parameter for Minkowski distance, by default 2
+
+          leaf_size : int, optional
+               maximum number of samples in a leaf node, by default 30
+          """
+          self.X = X
+          self.dist_type = dist_type
+          self.p = p
+          self.leaf_size = leaf_size
+          self.root = self._build_tree(X, 0)
+
+     def _build_tree(self, X, depth):
+          """Build KDTree.
+
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+
+          depth : int
+               depth of a node
+
+          Returns
+          -------
+          Node class
+               root node of KDTree
+          """
+          if X.shape[0] <= self.leaf_size:
+               return LeafNode(X)
+          else:
+               axis = depth % X.shape[1]
+               X = X[X[:, axis].argsort()]
+               median = X.shape[0] // 2
+               return InternalNode(X, self._build_tree(X[:median], depth+1), self._build_tree(X[median:], depth+1))
+          
+     def get_nearest_neighbors(self, X_test):
+          """Get nearest neighbors of test data.
+
+          Parameters
+          ----------
+          X_test : numpy.ndarray of shape (n_features,) where n_features is the number of features
+               test data
+
+          Returns
+          -------
+          numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               indices of nearest neighbors
+          """
+          return self.root._get_nearest_neighbors(X_test)
+
+class KNN:
+     def __init__(self, k=5, dist_type='euclidean', p=2, leaf_size=30, weights='uniform', algorithm='brute', n_process='max'):
+          """KNN algorithm for classification
 
           Parameters
           ----------
           k : int, optional
-               number of neighbors, by default 5
-          distance : str, optional
-               distance metric, by default 'euclidean'. The options are:
+               number of nearest neighbors, by default 5
+
+          dist_type : str, optional
+               type of metric distance used, by default 'euclidean'. The options are:
 
                     - 'euclidean': Euclidean distance
                     - 'manhattan': Manhattan distance
-                    - 'minkowski': Minkowski distance, this comes with the parameter p
+                    - 'minkowski': Minkowski distance
                     - 'cosine': Cosine distance
-                    - 'hamming': Hamming distance
                     - 'chebyshev': Chebyshev distance
+                    - 'hamming': Hamming distance
                     - 'jaccard': Jaccard distance
 
           p : int, optional
-               parameter for the Minkowski distance, by default 2
+               parameter for Minkowski distance, by default 2
+
+          leaf_size : int, optional
+               the maximum number of samples in a leaf node, by default 30
 
           weights : str, optional
-               weights for the neighbors, by default 'uniform'. The options are:
+               weights for each neighbor, by default 'uniform'. The options are:
 
-                    - 'uniform': uniform weights
-                    - 'distance': weights are inversely proportional to the distance
+                    - 'uniform': Uniform weights, where all points in each neighborhood are weighted equally
+                    - 'distance': Weighted by the inverse of their distance
+
+          algorithm : str, optional
+               algorithm used to compute the nearest neighbors, by default 'brute'. The options are:
+
+                    - 'brute': Brute-force approach, where all points are compared
+                    - 'kd_tree': KDTree algorithm, where the tree is built to reduce the number of comparisons
 
           n_process : str, optional
-               number of processes to use, by default 'max'. If 'max', the number of processes will be equal to the number of cores in the CPU.
+               number of processes to use, by default 'max'. The options are:
+
+                    - 'max': Use all available processes of the machine
+                    - 'int': Use the specified number of processes
           """
           self.k = k
-          self.distance = distance
+          self.dist_type = dist_type
           self.p = p
+          self.leaf_size = leaf_size
           self.weights = weights
+          self.algorithm = algorithm
           self.n_process = n_process
+          if self.n_process == 'max':
+               self.n_process = mp.cpu_count()
           self._check_params()
 
      def _check_params(self):
-          """Check the validity of the parameters."""
-          assert self.k > 0, 'Invalid number of neighbors.'
-          assert self.distance in ['euclidean', 'manhattan', 'minkowski', 'cosine', 'hamming', 'chebyshev', 'jaccard'], 'Invalid distance.'
-          assert self.p > 0, 'Invalid p.'
-          assert self.weights in ['uniform', 'distance'], 'Invalid weights.'
-          assert self.n_process == 'max' or self.n_process > 0, 'Invalid number of processes.'
-          if self.n_process == 'max':
-               self.n_process = mp.cpu_count()
+          """Check the validity of parameters."""
+          assert self.k > 0, 'k must be greater than 0'
+          assert self.dist_type in ['euclidean', 'manhattan', 'minkowski', 'cosine', 'chebyshev', 'hamming', 'jaccard'], 'Invalid distance type'
+          assert self.weights in ['uniform', 'distance'], 'Invalid weights'     
+          assert self.algorithm in ['brute', 'kd_tree'], 'Invalid algorithm'
+          assert self.n_process > 0, 'n_process must be greater than 0'
+          assert self.p > 0, 'p must be greater than 0'
+          assert self.leaf_size > 0, 'leaf_size must be greater than 0'
 
-     def _get_distance(self, x, y):
-          """Compute the distance between two data points.
-
-          Parameters
-          ----------
-          x : np.ndarray
-              indicates the first data point. 
-          y : np.ndarray
-              indicates the second data point.
-
-          Returns
-          -------
-          float
-              computed distance.
-          """
-          dist_dict = {'euclidean': minkowski_distance(x, y, p=2), 'manhattan': minkowski_distance(x, y, p=1),
-                       'minkowski': minkowski_distance(x, y, p=self.p), 'cosine': cosine_similarity(x, y, distance=True),
-                       'hamming': hamming_distance(x, y), 'chebyshev': chebyshev_distance(x, y),
-                       'jacard': jaccard_similarity(x, y, distance=True)}
-          return dist_dict[self.distance]
-     
-     def _get_nearest_neighbors(self, X, y, x):
-          """Get the nearest neighbors of a data point.
+     def _get_nearest_neighbors(self, X, X_test):
+          """Get nearest neighbors of test data.
 
           Parameters
           ----------
-          X : np.ndarray
-               indicates the training data.
-          y : np.ndarray
-               indicates the training labels.
-          x : np.ndarray
-               indicates the data point.
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+
+          X_test : numpy.ndarray of shape (n_features,) where n_features is the number of features
+               test data
 
           Returns
           -------
-          np.ndarray
-               indices of the nearest neighbors.
+          numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               indices of nearest neighbors
           """
-          distances = [self._get_distance(x, X[i]) for i in range(len(X))]
-          return np.argsort(distances)[:self.k]
+          if self.algorithm == 'brute':
+               dist = [get_dist(X_test, X[i], self.dist_type, self.p) for i in range(X.shape[0])]
+               return np.argsort(dist)[:self.k]
+          elif self.algorithm == 'kd_tree':
+               tree = KDTree(X, self.dist_type, self.p, self.leaf_size)
+               neighbors = tree.get_nearest_neighbors(X_test)
+               dist = [get_dist(X_test, X[i], self.dist_type, self.p) for i in neighbors]
+               return neighbors[np.argsort(dist)[:self.k]]
+               
+     def _predict(self, X, X_test):
+          """Get the labels for obtained k nearest neighbors using majority voting.
+          
+          Parameters
+          ----------
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
 
+          X_test : numpy.ndarray of shape (n_features,) where n_features is the number of features
+               test data
+               
+          Returns
+          -------
+          int
+               predicted labels
+          """
+          neighbors = self._get_nearest_neighbors(X, X_test)
+          if self.weights == 'uniform':
+               return np.bincount(self.y[neighbors]).argmax()
+          elif self.weights == 'distance':
+               dist = [get_dist(X_test, X[i], self.dist_type, self.p) for i in neighbors]
+               return np.bincount(self.y[neighbors], weights=1/np.array(dist)).argmax()
+          
      def fit(self, X, y):
           """Fit the model.
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
-               training data.
-          y : np.ndarray of shape (n_samples,).
-               target values.
+          X : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               training data
+
+          y : numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               target labels
           """
           self.X = X
           self.y = y
           self.classes = np.unique(y)
-
-     def predict_chunk(self, X_chunk):
-          """Predict the target labels for a chunk of the test data.
-
-          Parameters
-          ----------
-          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
-               chunk of the test data.
-
-          Returns
-          -------
-          np.ndarray of shape (n_samples,)
-               predicted labels.
-          """
-          predictions = []
-          for x in X_chunk:
-               neighbors = self._get_nearest_neighbors(self.X, self.y, x)
-               if self.weights == 'uniform':
-                    predictions.append(np.argmax(np.bincount(self.y[neighbors])))
-               elif self.weights == 'distance':
-                    distances = [self._get_distance(x, self.X[i]) for i in neighbors]
-                    predictions.append(np.argmax(np.bincount(self.y[neighbors], weights=distances)))
-          return np.array(predictions)
-
-     def predict(self, X):
-          """Predict the target labels for the test data.
+          self.n_classes = len(self.classes)
+     
+     def predict(self, X_test):
+          """Predict the labels for test data.
 
           Parameters
           ----------
-          X : np.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features.
-               test data.
+          X_test : numpy.ndarray of shape (n_samples, n_features) where n_samples is the number of samples and n_features is the number of features
+               test data
 
           Returns
           -------
-          np.ndarray of shape (n_samples,)
-               predicted labels for the test data.
+          numpy.ndarray of shape (n_samples,) where n_samples is the number of samples
+               predicted labels
           """
-          chunks = np.array_split(X, self.n_process)
-          pool = mp.Pool(self.n_process)
-          results = pool.map(self.predict_chunk, chunks)
-          pool.close()
-          pool.join()
-          return np.concatenate(results)
+          with mp.Pool(self.n_process) as pool:
+               return pool.starmap(self._predict, [(self.X, X_test[i]) for i in range(X_test.shape[0])])
