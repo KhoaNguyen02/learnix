@@ -33,7 +33,7 @@ class SGDRegression(object):
           assert self.lambd > 0, 'Invalid regularization parameter.'
           assert self.regularization in ['l1', 'l2', 'elasticnet', None], 'Invalid regularizer.'
 
-     def _penalty(self):
+     def _penalty(self, grad=False):
           """Compute the penalty.
           
           Returns
@@ -42,11 +42,11 @@ class SGDRegression(object):
                penalty term.
           """
           if self.regularization == 'l1':
-               return l1_regularizer(self.beta, self.lambd, grad=True)
+               return l1_regularizer(self.beta, self.lambd, grad)
           elif self.regularization == 'l2':
-               return l2_regularizer(self.beta, self.lambd, grad=True)
+               return l2_regularizer(self.beta, self.lambd, grad)
           elif self.regularization == 'l1_l2':
-               return l1_l2_regularizer(self.beta, self.lambd, grad=True)
+               return l1_l2_regularizer(self.beta, self.lambd, grad)
           else:
                return 0
           
@@ -64,12 +64,13 @@ class SGDRegression(object):
           # init parameters
           n_samples, n_features = X.shape
           self.beta = np.zeros(n_features)
+          self.cost_history = np.zeros(self.n_iters)
      
           # gradient descent
-          for _ in range(self.n_iters):
+          for i in range(self.n_iters):
                y_pred = np.dot(X, self.beta)
-               grad = -2/n_samples * np.dot(X.T, y - y_pred)
-               grad += self._penalty()
+               self.cost_history[i] = np.mean(0.5 * (y_pred - y) ** 2 + self._penalty())
+               grad = -np.dot(X.T, y - y_pred) / n_samples + self._penalty(grad=True)
                self.beta -= self.lr * grad
 
      def predict(self, X):
